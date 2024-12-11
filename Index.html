@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clima y Servicios Web</title>
+    <link rel="stylesheet" href="index.css">  <!-- Asegúrate de poner el camino correcto al archivo CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
+    <script src="Formulario.js"></script>
+    <!-- Enlace a Font Awesome para los íconos de redes sociales -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+
+</head>
+<body>
+    <div class="contenedor">
+        <h1>Servicios de Clima y Ubicación</h1>
+        <div id="viewCounter">Visitas: 0</div>
+        <nav>
+            <button id="mapButton">Mapa y Clima</button>
+            <button id="formButton">Formulario de Clima</button>
+        </nav>
+    </div>
+
+    <!-- Mapa y Clima -->
+    <div id="mapSection">
+        <div id="map"></div>
+        <div id="info">
+            <h1>Clima Actual</h1>
+            <div id="weather">Cargando ubicación y clima...</div>
+            <table id="recommendations" style="display:none;">
+                <thead>
+                    <tr>
+                        <th>Condición</th>
+                        <th>Recomendación</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Recomendaciones dinámicas -->
+                </tbody>
+            </table>
+            <button id="backButton">Regresar</button>
+        </div>
+    </div>
+
+    <!-- Formulario de Clima -->
+<div id="formSection" style="display:none;">
+    <h1>Formulario de Clima</h1>
+    <div id="mapForm"></div>
+    <form id="weatherForm" name="weather-form" method="POST" data-netlify="true">
+        <label for="city">Ciudad o lugar:</label>
+        <input type="text" id="city" name="city" required><br>
+        
+        <label for="temperature">Temperatura:</label>
+        <input type="text" id="temperature" name="temperature" required><br>
+        
+        <label for="description">Descripción:</label>
+        <input type="text" id="description" name="description" required><br>
+        
+        <button type="submit">Enviar datos</button>
+    </form>             
+</div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+        const mapDiv = document.getElementById('map');
+        const weatherDiv = document.getElementById('weather');
+        const recommendationsTable = document.getElementById('recommendations');
+        const weatherForm = document.getElementById('weatherForm');
+        const cityInput = document.getElementById('city');
+        const temperatureInput = document.getElementById('temperature');
+        const descriptionInput = document.getElementById('description');
+        const mapButton = document.getElementById('mapButton');
+        const formButton = document.getElementById('formButton');
+        const mapSection = document.getElementById('mapSection');
+        const formSection = document.getElementById('formSection');
+        const backButton = document.getElementById('backButton');
+        const apiKey = 'cabcc0d1461eb8cc5529e35eff841763';
+
+        const weatherTranslations = {
+            clear: "Soleado",
+            rain: "Lluvia",
+            clouds: "Nublado",
+            snow: "Nieve",
+            drizzle: "Llovizna",
+            thunderstorm: "Tormenta",
+            mist: "Neblina",
+            smoke: "Humo",
+            haze: "Bruma",
+            dust: "Polvo",
+            fog: "Niebla",
+            sand: "Arena",
+            ash: "Ceniza volcánica",
+            squall: "Chubascos",
+            tornado: "Tornado"
+        };
+
+// Mostrar Mapa y Clima
+mapButton.addEventListener('click', () => {
+    // Ocultar el contenedor con los botones y la cabecera
+    document.querySelector('.contenedor').style.display = 'none';
+    
+    // Mostrar la sección de mapa y clima
+    mapSection.style.display = 'flex';
+    formSection.style.display = 'none';
+
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const { latitude, longitude } = position.coords;
+                const map = L.map('map').setView([latitude, longitude], 16);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(map);
+                L.marker([latitude, longitude]).addTo(map).bindPopup('Estás aquí').openPopup();
+
+                fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&appid=${apiKey}&units=metric&lang=es`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const weatherIcon = `https://openweathermap.org/img/wn/${data.weather[0].icon}@2x.png`;
+                        weatherDiv.innerHTML = `
+                            <h3>Clima en ${data.name}</h3>
+                            <img src="${weatherIcon}" alt="Ícono del clima">
+                            <p>Temperatura: ${data.main.temp}°C</p>
+                            <p>Descripción: ${data.weather[0].description}</p>
+                        `;
+                        const mainCondition = data.weather[0].main.toLowerCase();
+                        const translatedCondition = weatherTranslations[mainCondition] || "Clima desconocido";
+                        const tbody = recommendationsTable.querySelector('tbody');
+                        tbody.innerHTML = '';
+
+                        if (mainCondition === 'rain') {
+                            tbody.innerHTML += `
+                                <tr>
+                                    <td>${translatedCondition}</td>
+                                    <td>Usa paraguas</td>
+                                </tr>
+                                <tr>
+                                    <td>${translatedCondition}</td>
+                                    <td>Evita zonas inundadas</td>
+                                </tr>
+                            `;
+                        } else if (mainCondition === 'clear') {
+                            tbody.innerHTML += `
+                                <tr>
+                                    <td>${translatedCondition}</td>
+                                    <td>Usa protector solar</td>
+                                </tr>
+                                <tr>
+                                    <td>${translatedCondition}</td>
+                                    <td>Hidrátate bien</td>
+                                </tr>
+                            `;
+                        } else {
+                            tbody.innerHTML += `
+                                <tr>
+                                    <td>${translatedCondition}</td>
+                                    <td>Prepárate para cambios de clima</td>
+                                </tr>
+                                <tr>
+                                    <td>${translatedCondition}</td>
+                                    <td>Usa ropa adecuada</td>
+                                </tr>
+                            `;
+                        }
+                        recommendationsTable.style.display = 'table';
+                    })
+                    .catch(error => {
+                        weatherDiv.innerHTML = 'No se pudo obtener el clima.';
+                        console.error(error);
+                    });
+            },
+            (error) => {
+                weatherDiv.innerHTML = 'No se pudo obtener la ubicación.';
+                console.error(error);
+            }
+        );
+    } else {
+        weatherDiv.innerHTML = 'Tu navegador no soporta la geolocalización.';
+    }
+});
+
+
+        // Mostrar Formulario de Clima
+        formButton.addEventListener('click', () => {
+            formSection.style.display = 'block';
+            mapSection.style.display = 'none';
+
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const { latitude, longitude } = position.coords;
+
+                        const map = L.map('mapForm').setView([latitude, longitude], 16);
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(map);
+                        L.marker([latitude, longitude]).addTo(map).bindPopup('Estás aquí').openPopup();
+
+                        fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&appid=${apiKey}&units=metric&lang=es`)
+                            .then(response => response.json())
+                            .then(data => {
+                                cityInput.value = data.name;
+                                temperatureInput.value = `${data.main.temp}°C`;
+                                descriptionInput.value = data.weather[0].description;
+                            })
+                            .catch(error => {
+                                console.error('Error al obtener el clima:', error);
+                            });
+                    },
+                    (error) => {
+                        console.error('No se pudo obtener la ubicación:', error);
+                    }
+                );
+            } else {
+                console.error('Tu navegador no soporta la geolocalización.');
+            }
+        });
+
+        // Regresar al menú principal
+        backButton.addEventListener('click', () => {
+            mapSection.style.display = 'none';
+            formSection.style.display = 'none';
+            document.querySelector('.contenedor').style.display = 'block';
+        });
+
+        // Inicializa el contador de vistas si no existe en localStorage
+        if (localStorage.getItem('viewCount') === null) {
+        localStorage.setItem('viewCount', 0); // Establece el contador inicial en 0
+        }
+
+        // Incrementa el contador de vistas
+        let viewCount = parseInt(localStorage.getItem('viewCount'));
+        viewCount += 1; // Incrementa el contador
+        localStorage.setItem('viewCount', viewCount); // Guarda el nuevo valor en localStorage
+
+        // Muestra el contador en el HTML
+        document.getElementById('viewCounter').innerText = `Visitas: ${viewCount}`;
+
+        
+
+    </script>
+
+<footer>
+    <div class="redes-sociales">
+        <a href="https://www.facebook.com/pedrogabriel.ocamporojas.9" target="_blank" class="social-icon">
+            <i class="fab fa-facebook"></i> Facebook
+        </a>
+        <a href="https://www.instagram.com/ariel_buatauba/" target="_blank" class="social-icon">
+            <i class="fab fa-instagram"></i> Instagram
+        </a>
+        <h1>Descarga esta imagen</h1>
+            <a href="tiochill.jpg" download="tiochill.jpg">
+            <img src="tiochill.jpg" alt="Descripción de la imagen" style="width: 100px; height: auto;">
+        </a>
+        <p>Haz clic en la imagen para descargarla.</p>
+    </div>
+</footer>    
+</body>
+</html>
